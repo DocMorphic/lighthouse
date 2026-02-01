@@ -163,9 +163,9 @@ export default function App() {
             </View>
             {(targetIntel.floor || targetIntel.note) && (
               <View style={styles.intelContainer}>
-                <Text style={styles.intelTitle}>TACTICAL INTEL</Text>
-                {targetIntel.floor && <Text style={styles.intelText}>🏢 FLR: {targetIntel.floor}</Text>}
-                {targetIntel.note && <Text style={styles.intelText}>📝 {targetIntel.note}</Text>}
+                <Text style={styles.intelTitle}>DESTINATION DETAILS</Text>
+                {targetIntel.floor && <Text style={styles.intelText}>🏢 Floor/Unit: {targetIntel.floor}</Text>}
+                {targetIntel.note && <Text style={styles.intelText}>📝 Note: {targetIntel.note}</Text>}
               </View>
             )}
 
@@ -216,7 +216,7 @@ export default function App() {
 
             <TouchableOpacity style={styles.utilityButton} onPress={() => setShowShare(true)}>
               <Share2 color="#666" size={16} />
-              <Text style={styles.utilityButtonText}>SHARE BEACON</Text>
+              <Text style={styles.utilityButtonText}>SHARE LOCATION</Text>
             </TouchableOpacity>
           </>
         )}

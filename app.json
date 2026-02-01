@@ -3,6 +3,7 @@
     "name": "lighthouse",
     "slug": "lighthouse",
     "version": "1.0.0",
+    "scheme": "lighthouse",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

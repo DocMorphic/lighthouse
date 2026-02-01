@@ -10,7 +10,8 @@ export const createBeaconUrl = (coordinate: Coordinate, note?: string, floor?: s
     if (note) params.append('note', note);
     if (floor) params.append('floor', floor);
 
-    return Linking.createURL('target', { queryParams: Object.fromEntries(params) });
+    // 'createURL' handles both dev (exp://) and prod (lighthouse://) automatically
+    return Linking.createURL('/', { queryParams: Object.fromEntries(params) });
 };
 
 export const parseBeaconUrl = (url: string) => {
