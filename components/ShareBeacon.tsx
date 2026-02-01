@@ -50,7 +50,7 @@ export function ShareBeacon({ location, onClose }: ShareBeaconProps) {
         const message = `📍 Location Shared\n\nCoordinates: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}\n` +
             (floor ? `🏢 Floor/Unit: ${floor}\n` : '') +
             (note ? `📝 Note: ${note}\n` : '') +
-            `\nOpen in Lighthouse: ${url}`;
+            `\nOpen in Lighthouse:\n${url}`;
 
         try {
             await Share.share({

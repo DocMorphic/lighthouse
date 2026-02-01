@@ -117,7 +117,7 @@ export default function App() {
 
           <View style={styles.headerCenter}>
             <Text style={[styles.title, { color: colors.text }]}>LIGHTHOUSE</Text>
-            <Text style={styles.subtitle}>Tactical Navigation</Text>
+            <Text style={styles.subtitle}>Find the PRECISE location</Text>
             {/* Explicit GPS Text Line */}
             <Text style={[styles.gpsText, { color: gpsQuality.color }]}>
               GPS: ±{gpsAccuracy?.toFixed(0) || '--'}m ({gpsQuality.label})
