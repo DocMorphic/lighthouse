@@ -4,10 +4,23 @@ import * as Haptics from 'expo-haptics';
 import { MapPin, Compass, Target } from 'lucide-react-native';
 import { useSpatialTracking } from './hooks/useSpatialTracking';
 import { getRelativeAngle, Coordinate } from './utils/spatial';
+import { CompassNeedle } from './components/CompassNeedle';
 
 export default function App() {
   const [target, setTarget] = useState<Coordinate | null>(null);
-  const { currentLocation, heading, distance, bearing, error } = useSpatialTracking(target);
+  const [showDebug, setShowDebug] = useState(true);
+  const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
+  const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
+
+  // GPS Quality indicator
+  const getGpsQuality = () => {
+    if (!gpsAccuracy) return { label: 'NO SIGNAL', color: '#666' };
+    if (gpsAccuracy <= 5) return { label: 'EXCELLENT', color: '#4ade80' };
+    if (gpsAccuracy <= 10) return { label: 'GOOD', color: '#22d3ee' };
+    if (gpsAccuracy <= 20) return { label: 'MODERATE', color: '#facc15' };
+    return { label: 'POOR', color: '#f87171' };
+  };
+  const gpsQuality = getGpsQuality();
 
   // Haptic feedback loop when aligned
   useEffect(() => {
@@ -40,6 +53,10 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.title}>LIGHTHOUSE</Text>
         <Text style={styles.subtitle}>Tactical Navigation</Text>
+        <View style={[styles.qualityBadge, { backgroundColor: gpsQuality.color + '20', borderColor: gpsQuality.color }]}>
+          <View style={[styles.qualityDot, { backgroundColor: gpsQuality.color }]} />
+          <Text style={[styles.qualityText, { color: gpsQuality.color }]}>{gpsQuality.label} GPS</Text>
+        </View>
       </View>
 
       <View style={styles.statsContainer}>
@@ -58,21 +75,22 @@ export default function App() {
       <View style={styles.mainView}>
         {target ? (
           <View style={styles.infoBox}>
-            <Text style={styles.distanceLabel}>Distance to Target</Text>
-            <Text style={styles.distanceValue}>
-              {distance ? (distance > 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(1)} m`) : '--'}
-            </Text>
-            <View style={styles.alignmentStatus}>
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: heading && bearing && Math.abs(getRelativeAngle(heading, bearing)) < 15 ? '#4ade80' : '#f87171' }
-                ]}
-              />
-              <Text style={styles.statusText}>
-                {heading && bearing && Math.abs(getRelativeAngle(heading, bearing)) < 15 ? 'ALIGNED' : 'OFF COURSE'}
+            <CompassNeedle angleDiff={angleDiff} size={180} />
+            <View style={styles.distanceContainer}>
+              <Text style={styles.distanceLabel}>Distance to Target</Text>
+              <Text style={styles.distanceValue}>
+                {distance !== null ? (distance === 0 ? 'ARRIVED' : distance > 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(1)} m`) : '--'}
               </Text>
             </View>
+            {showDebug && (
+              <View style={styles.debugPanel}>
+                <Text style={styles.debugTitle}>DEBUG INFO</Text>
+                <Text style={styles.debugText}>GPS Accuracy: ±{gpsAccuracy?.toFixed(1) || '--'} m</Text>
+                <Text style={styles.debugText}>Heading Accuracy: {headingAccuracy?.toFixed(0) || '--'}°</Text>
+                <Text style={styles.debugText}>Angle Diff: {angleDiff?.toFixed(1) || '--'}°</Text>
+                <Text style={styles.debugText}>Your Pos: {currentLocation?.latitude.toFixed(5)}, {currentLocation?.longitude.toFixed(5)}</Text>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -159,6 +177,10 @@ const styles = StyleSheet.create({
   infoBox: {
     alignItems: 'center',
   },
+  distanceContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
   distanceLabel: {
     color: '#666',
     fontSize: 14,
@@ -226,5 +248,45 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#f87171',
     textAlign: 'center',
-  }
+  },
+  debugPanel: {
+    marginTop: 20,
+    backgroundColor: '#1a1a1a',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+  },
+  debugTitle: {
+    color: '#666',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  debugText: {
+    color: '#888',
+    fontSize: 11,
+    fontFamily: 'monospace',
+    marginVertical: 2,
+  },
+  qualityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  qualityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  qualityText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
 });
