@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { MapPin, Compass, Target, Search, Map as MapIcon } from 'lucide-react-native';
+import * as Linking from 'expo-linking';
+import { MapPin, Compass, Target, Search, Map as MapIcon, Share2 } from 'lucide-react-native';
 import { useSpatialTracking } from './hooks/useSpatialTracking';
 import { getRelativeAngle, Coordinate } from './utils/spatial';
 import { CompassNeedle } from './components/CompassNeedle';
 import { LocationSearch } from './components/LocationSearch';
 import { MapPicker } from './components/MapPicker';
+import { ShareBeacon } from './components/ShareBeacon';
+import { parseBeaconUrl } from './utils/linking';
 
 export default function App() {
   const [target, setTarget] = useState<Coordinate | null>(null);
   const [targetName, setTargetName] = useState<string | null>(null);
+  const [targetIntel, setTargetIntel] = useState<{ note?: string; floor?: string }>({});
   const [showSearch, setShowSearch] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
   const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
@@ -46,9 +51,32 @@ export default function App() {
     }
   };
 
+  // Deep Link Handling
+  useEffect(() => {
+    const handleUrl = (event: { url: string }) => {
+      const data = parseBeaconUrl(event.url);
+      if (data) {
+        setTarget(data.coordinate);
+        setTargetName('Shared Beacon');
+        setTargetIntel({ note: data.note, floor: data.floor });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    };
+
+    // Check initial URL
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl({ url });
+    });
+
+    // Listen for incoming URLs
+    const sub = Linking.addEventListener('url', handleUrl);
+    return () => sub.remove();
+  }, []);
+
   const handleLocationSelect = (location: Coordinate, name: string) => {
     setTarget(location);
     setTargetName(name);
+    setTargetIntel({}); // Clear intel for manual selections
     setShowSearch(false);
     setShowMap(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -57,6 +85,7 @@ export default function App() {
   const handleClearTarget = () => {
     setTarget(null);
     setTargetName(null);
+    setTargetIntel({});
   };
 
   if (error) {
@@ -84,6 +113,16 @@ export default function App() {
         onLocationSelect={handleLocationSelect}
         onCancel={() => setShowMap(false)}
         initialLocation={currentLocation}
+      />
+    );
+  }
+
+  // Show Share Beacon Modal
+  if (showShare && currentLocation) {
+    return (
+      <ShareBeacon
+        location={currentLocation}
+        onClose={() => setShowShare(false)}
       />
     );
   }
@@ -122,6 +161,14 @@ export default function App() {
                 {distance !== null ? (distance === 0 ? 'ARRIVED' : distance > 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(1)} m`) : '--'}
               </Text>
             </View>
+            {(targetIntel.floor || targetIntel.note) && (
+              <View style={styles.intelContainer}>
+                <Text style={styles.intelTitle}>TACTICAL INTEL</Text>
+                {targetIntel.floor && <Text style={styles.intelText}>🏢 FLR: {targetIntel.floor}</Text>}
+                {targetIntel.note && <Text style={styles.intelText}>📝 {targetIntel.note}</Text>}
+              </View>
+            )}
+
             {showDebug && (
               <View style={styles.debugPanel}>
                 <Text style={styles.debugTitle}>DEBUG INFO</Text>
@@ -166,6 +213,11 @@ export default function App() {
                 <Text style={styles.halfButtonText}>MARK HERE</Text>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity style={styles.utilityButton} onPress={() => setShowShare(true)}>
+              <Share2 color="#666" size={16} />
+              <Text style={styles.utilityButtonText}>SHARE BEACON</Text>
+            </TouchableOpacity>
           </>
         )}
       </View>
@@ -386,5 +438,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
     letterSpacing: 1,
+  },
+  utilityButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 20,
+    backgroundColor: '#111',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  utilityButtonText: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  intelContainer: {
+    marginTop: 20,
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(74, 222, 128, 0.3)',
+    borderRadius: 12,
+    padding: 15,
+    width: '100%',
+    alignItems: 'flex-start',
+  },
+  intelTitle: {
+    color: '#4ade80',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 5,
+  },
+  intelText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
