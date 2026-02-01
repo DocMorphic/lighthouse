@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { MapPin, Compass, Target, Search } from 'lucide-react-native';
+import { MapPin, Compass, Target, Search, Map as MapIcon } from 'lucide-react-native';
 import { useSpatialTracking } from './hooks/useSpatialTracking';
 import { getRelativeAngle, Coordinate } from './utils/spatial';
 import { CompassNeedle } from './components/CompassNeedle';
 import { LocationSearch } from './components/LocationSearch';
+import { MapPicker } from './components/MapPicker';
 
 export default function App() {
   const [target, setTarget] = useState<Coordinate | null>(null);
   const [targetName, setTargetName] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
   const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
@@ -48,6 +50,7 @@ export default function App() {
     setTarget(location);
     setTargetName(name);
     setShowSearch(false);
+    setShowMap(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
@@ -70,6 +73,17 @@ export default function App() {
       <LocationSearch
         onLocationSelect={handleLocationSelect}
         onCancel={() => setShowSearch(false)}
+      />
+    );
+  }
+
+  // Show the Map Picker screen
+  if (showMap) {
+    return (
+      <MapPicker
+        onLocationSelect={handleLocationSelect}
+        onCancel={() => setShowMap(false)}
+        initialLocation={currentLocation}
       />
     );
   }
@@ -140,9 +154,18 @@ export default function App() {
               <Search color="#000" size={20} />
               <Text style={styles.buttonText}>SEARCH DESTINATION</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleSetTarget}>
-              <Text style={styles.secondaryButtonText}>Or mark current location</Text>
-            </TouchableOpacity>
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.halfButton} onPress={() => setShowMap(true)}>
+                <MapIcon color="#fff" size={20} />
+                <Text style={styles.halfButtonText}>PICK ON MAP</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.halfButton} onPress={handleSetTarget}>
+                <MapPin color="#fff" size={20} />
+                <Text style={styles.halfButtonText}>MARK HERE</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </View>
@@ -341,5 +364,27 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
     textAlign: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+    width: '100%',
+  },
+  halfButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 18,
+    borderRadius: 20,
+    gap: 8,
+  },
+  halfButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+    letterSpacing: 1,
   },
 });
