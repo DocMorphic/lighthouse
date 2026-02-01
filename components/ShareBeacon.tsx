@@ -46,20 +46,20 @@ export function ShareBeacon({ location, onClose }: ShareBeaconProps) {
     const handleShare = async () => {
         const url = createBeaconUrl(location, note, floor);
 
-        // Professional sharing message
-        const message = `📍 Location Shared\n\nCoordinates: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}\n` +
-            (floor ? `🏢 Floor/Unit: ${floor}\n` : '') +
-            (note ? `📝 Note: ${note}\n` : '') +
-            `\nOpen in Lighthouse:\n${url}`;
+        // Create a message that is helpful even without the app
+        const message = `📍 Tactical Beacon\n\nTarget: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}\n` +
+            (floor ? `🏢 Floor: ${floor}\n` : '') +
+            (note ? `📝 Intel: ${note}\n` : '') +
+            `\nOpen in Lighthouse: ${url}`;
 
         try {
             await Share.share({
                 message,
-                url,
+                url, // iOS often uses this for AirDrop
             });
             onClose();
         } catch (error) {
-            Alert.alert('Error', 'Could not share location');
+            Alert.alert('Error', 'Could not share beacon');
         }
     };
 
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     },
     handle: {
         width: 40,
-        height: 4,
+        height: 1,
         backgroundColor: '#333',
         borderRadius: 2,
         alignSelf: 'center',
