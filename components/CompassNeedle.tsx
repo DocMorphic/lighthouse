@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Animated, Easing } from 'react-native';
+import { StyleSheet, View, Animated } from 'react-native';
 import { Navigation } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 
 interface CompassNeedleProps {
     angleDiff: number | null;
     size?: number;
+    theme?: 'light' | 'dark';
 }
 
 // Helper to calculate SVG path for an arc
@@ -30,7 +31,7 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
     };
 }
 
-export function CompassNeedle({ angleDiff, size = 200 }: CompassNeedleProps) {
+export function CompassNeedle({ angleDiff, size = 200, theme = 'dark' }: CompassNeedleProps) {
     const rotation = useRef(new Animated.Value(0)).current;
 
     // Animate rotation
@@ -45,13 +46,19 @@ export function CompassNeedle({ angleDiff, size = 200 }: CompassNeedleProps) {
         }
     }, [angleDiff, rotation]);
 
+    const isDark = theme === 'dark';
+
     // Calculate colors
     const getColor = () => {
-        if (angleDiff === null) return { ring: '#333', icon: '#fff', arc: 'transparent' };
+        if (angleDiff === null) return {
+            ring: isDark ? '#333' : '#e2e8f0',
+            icon: isDark ? '#fff' : '#0f172a',
+            arc: 'transparent'
+        };
         const absAngle = Math.abs(angleDiff);
         if (absAngle < 15) return { ring: '#4ade80', icon: '#4ade80', arc: 'rgba(74, 222, 128, 0.3)' }; // Green
-        if (absAngle < 45) return { ring: '#facc15', icon: '#fff', arc: 'rgba(250, 204, 21, 0.3)' }; // Yellow
-        return { ring: '#f87171', icon: '#fff', arc: 'rgba(248, 113, 113, 0.3)' }; // Red
+        if (absAngle < 45) return { ring: '#facc15', icon: isDark ? '#fff' : '#000', arc: 'rgba(250, 204, 21, 0.3)' }; // Yellow
+        return { ring: '#f87171', icon: isDark ? '#fff' : '#000', arc: 'rgba(248, 113, 113, 0.3)' }; // Red
     };
     const colors = getColor();
 
@@ -96,7 +103,9 @@ export function CompassNeedle({ angleDiff, size = 200 }: CompassNeedleProps) {
                     width: size * 0.2,
                     height: size * 0.2,
                     borderRadius: size * 0.1,
-                    zIndex: 20
+                    zIndex: 20,
+                    backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+                    borderColor: isDark ? '#333' : '#cbd5e1',
                 }]} />
 
                 {/* Rotatable Needle */}
@@ -142,9 +151,7 @@ const styles = StyleSheet.create({
         borderWidth: 3,
     },
     innerRing: {
-        backgroundColor: '#1a1a1a',
         borderWidth: 2,
-        borderColor: '#333',
         position: 'absolute',
     },
     needleLayer: {
