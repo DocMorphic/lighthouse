@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { MapPin, Compass, Target } from 'lucide-react-native';
+import { MapPin, Compass, Target, Search } from 'lucide-react-native';
 import { useSpatialTracking } from './hooks/useSpatialTracking';
 import { getRelativeAngle, Coordinate } from './utils/spatial';
 import { CompassNeedle } from './components/CompassNeedle';
+import { LocationSearch } from './components/LocationSearch';
 
 export default function App() {
   const [target, setTarget] = useState<Coordinate | null>(null);
-  const [showDebug, setShowDebug] = useState(true);
+  const [targetName, setTargetName] = useState<string | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
   const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
 
@@ -36,8 +39,21 @@ export default function App() {
   const handleSetTarget = () => {
     if (currentLocation) {
       setTarget(currentLocation);
+      setTargetName('Current Location');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
+  };
+
+  const handleLocationSelect = (location: Coordinate, name: string) => {
+    setTarget(location);
+    setTargetName(name);
+    setShowSearch(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleClearTarget = () => {
+    setTarget(null);
+    setTargetName(null);
   };
 
   if (error) {
@@ -45,6 +61,16 @@ export default function App() {
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
       </View>
+    );
+  }
+
+  // Show the Location Search screen
+  if (showSearch) {
+    return (
+      <LocationSearch
+        onLocationSelect={handleLocationSelect}
+        onCancel={() => setShowSearch(false)}
+      />
     );
   }
 
@@ -95,20 +121,29 @@ export default function App() {
         ) : (
           <View style={styles.emptyState}>
             <MapPin color="#666" size={48} />
-            <Text style={styles.emptyText}>No target set. Walk to a spot and tap the button below to mark your "Home".</Text>
+            <Text style={styles.emptyText}>No destination set.{"\n"}Search for an address or mark your current spot.</Text>
           </View>
         )}
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.primaryButton} onPress={handleSetTarget}>
-          <Text style={styles.buttonText}>{target ? 'RESET TARGET' : 'SET CURRENT AS TARGET'}</Text>
-        </TouchableOpacity>
-
-        {target && (
-          <Text style={styles.coordText}>
-            Target: {target.latitude.toFixed(4)}, {target.longitude.toFixed(4)}
-          </Text>
+        {target ? (
+          <>
+            <Text style={styles.targetName}>{targetName}</Text>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleClearTarget}>
+              <Text style={styles.secondaryButtonText}>Clear Target</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => setShowSearch(true)}>
+              <Search color="#000" size={20} />
+              <Text style={styles.buttonText}>SEARCH DESTINATION</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleSetTarget}>
+              <Text style={styles.secondaryButtonText}>Or mark current location</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -226,12 +261,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     backgroundColor: '#fff',
     paddingVertical: 18,
     paddingHorizontal: 40,
     borderRadius: 40,
     width: '100%',
-    alignItems: 'center',
   },
   buttonText: {
     color: '#000',
@@ -288,5 +325,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  targetName: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  secondaryButton: {
+    paddingVertical: 12,
+    marginTop: 10,
+  },
+  secondaryButtonText: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
