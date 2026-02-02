@@ -2,7 +2,7 @@ import * as Linking from 'expo-linking';
 import { Coordinate } from './spatial';
 
 // The permanent Vercel URL from your deployment
-const VERCEL_PROXY_URL = 'https://proxy-lighthouse-j7buxdu2e-dharmays-projects.vercel.app';
+const VERCEL_PROXY_URL = 'https://proxy-lighthouse123.vercel.app/';
 
 export const createBeaconUrl = (coordinate: Coordinate, note?: string, floor?: string) => {
     const params = new URLSearchParams({
