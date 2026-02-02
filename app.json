@@ -17,6 +17,11 @@
       "supportsTablet": true
     },
     "android": {
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyC5RroTdLu-ryMdXq9qpA9vAViqiC0dGbg"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/lighthouse.jpg",
         "backgroundColor": "#ffffff"
