@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar, Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { MapPin, Compass, Target, Search, Map as MapIcon, Share2, Sun, Moon } from 'lucide-react-native';
@@ -10,6 +10,7 @@ import { LocationSearch } from './components/LocationSearch';
 import { MapPicker } from './components/MapPicker';
 import { ShareBeacon } from './components/ShareBeacon';
 import { parseBeaconUrl } from './utils/linking';
+import { ConfirmationModal } from './components/ConfirmationModal';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
@@ -20,6 +21,7 @@ export default function App() {
   const [showMap, setShowMap] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
   const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
@@ -95,9 +97,15 @@ export default function App() {
   };
 
   const handleClearTarget = () => {
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearTarget = () => {
     setTarget(null);
     setTargetName(null);
     setTargetIntel({});
+    setShowClearConfirm(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   if (showSearch) return <LocationSearch onLocationSelect={handleLocationSelect} onCancel={() => setShowSearch(false)} />;
@@ -108,6 +116,16 @@ export default function App() {
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={theme === 'dark' ? "light-content" : "dark-content"} />
       <SafeAreaView style={styles.safeArea}>
+
+        <ConfirmationModal
+          visible={showClearConfirm}
+          title="Clear Destination"
+          message="Are you sure you want to clear your current target?"
+          confirmText="Clear Target"
+          onConfirm={confirmClearTarget}
+          onCancel={() => setShowClearConfirm(false)}
+          isDestructive
+        />
 
         {/* Header: Theme Toggle | Title | GPS Text */}
         <View style={styles.header}>
