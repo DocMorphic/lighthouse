@@ -26,6 +26,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e5c1f5d1-f873-4748-8f33-c62e3ec4020c"
+      }
+    },
+    "owner": "docmorphic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e5c1f5d1-f873-4748-8f33-c62e3ec4020c"
     }
   }
 }
