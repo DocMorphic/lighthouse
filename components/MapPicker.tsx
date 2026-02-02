@@ -18,6 +18,7 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
     const [currentCoord, setCurrentCoord] = useState<Coordinate>(
         initialLocation || { latitude: 37.78825, longitude: -122.4324 }
     );
+    const [mapReady, setMapReady] = useState(false);
 
     // Get current location if initialLocation is missing
     useEffect(() => {
@@ -25,18 +26,26 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
             (async () => {
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status === 'granted') {
-                    const loc = await Location.getCurrentPositionAsync({});
+                    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                     const newCoord = {
                         latitude: loc.coords.latitude,
                         longitude: loc.coords.longitude,
                     };
                     setCurrentCoord(newCoord);
-                    // Center the map in the webview
-                    webViewRef.current?.injectJavaScript(`map.setView([${newCoord.latitude}, ${newCoord.longitude}], 15);`);
+                    centerMap(newCoord.latitude, newCoord.longitude);
                 }
             })();
         }
     }, [initialLocation]);
+
+    const centerMap = (lat: number, lng: number) => {
+        const js = `
+            if (typeof map !== 'undefined') {
+                map.setView([${lat}, ${lng}], 15);
+            }
+        `;
+        webViewRef.current?.injectJavaScript(js);
+    };
 
     const handleMessage = (event: any) => {
         try {
@@ -46,6 +55,12 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
                     latitude: data.lat,
                     longitude: data.lng,
                 });
+            } else if (data.type === 'READY') {
+                setMapReady(true);
+                // If we already have a location, ensure it's centered
+                if (currentCoord) {
+                    centerMap(currentCoord.latitude, currentCoord.longitude);
+                }
             }
         } catch (e) {
             console.error('Failed to parse message from WebView', e);
@@ -53,6 +68,10 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
     };
 
     const mapHtml = useMemo(() => {
+        // Use the actual currentCoord for the initial HTML generation
+        const startLat = currentCoord.latitude;
+        const startLng = currentCoord.longitude;
+
         return `
             <!DOCTYPE html>
             <html>
@@ -61,10 +80,9 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
-                    body { margin: 0; padding: 0; background-color: #000; }
-                    #map { height: 100vh; width: 100vw; background-color: #000; }
+                    body { margin: 0; padding: 0; background-color: #f0f0f0; }
+                    #map { height: 100vh; width: 100vw; }
                     .leaflet-control-attribution { display: none !important; }
-                    .leaflet-bar { border: none !important; }
                 </style>
             </head>
             <body>
@@ -73,10 +91,10 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
                     var map = L.map('map', {
                         zoomControl: false,
                         attributionControl: false
-                    }).setView([${currentCoord.latitude}, ${currentCoord.longitude}], 15);
+                    }).setView([${startLat}, ${startLng}], 15);
 
-                    // Using CartoDB Dark Matter tiles for a premium dark look
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    // Voyager theme - much more readable but still clean and premium
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                         maxZoom: 19
                     }).addTo(map);
 
@@ -89,7 +107,9 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
                         }));
                     });
 
-                    // Initial focus
+                    // Tell React Native we are ready
+                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'READY' }));
+
                     document.addEventListener('DOMContentLoaded', function() {
                         setTimeout(() => map.invalidateSize(), 100);
                     });
@@ -97,7 +117,7 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
             </body>
             </html>
         `;
-    }, []); // Only generate HTML once to prevent reloads
+    }, []); // Still [] is fine because we coordinate with centerMap via JS injection
 
     const handleSelect = () => {
         onLocationSelect(currentCoord, 'Marked Location');
