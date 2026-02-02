@@ -1,17 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
-import { MapPin, X } from 'lucide-react-native';
+import { MapPin, X, Share2, Bookmark } from 'lucide-react-native';
 import { Coordinate } from '../utils/spatial';
 import * as Location from 'expo-location';
 
 interface MapPickerProps {
     onLocationSelect: (location: Coordinate, name: string) => void;
+    onShare: (location: Coordinate) => void;
+    onFavorite: (location: Coordinate) => void;
     onCancel: () => void;
     initialLocation: Coordinate | null;
 }
 
-export function MapPicker({ onLocationSelect, onCancel, initialLocation }: MapPickerProps) {
+export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, initialLocation }: MapPickerProps) {
     const mapRef = useRef<MapView>(null);
     const [region, setRegion] = useState<Region>({
         latitude: initialLocation?.latitude || 37.78825,
@@ -84,9 +86,19 @@ export function MapPicker({ onLocationSelect, onCancel, initialLocation }: MapPi
 
             {/* Footer Overlay */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.confirmButton} onPress={handleSelect}>
-                    <Text style={styles.confirmText}>SET LOCATION</Text>
-                </TouchableOpacity>
+                <View style={styles.actionRow}>
+                    <TouchableOpacity style={[styles.sideButton, { backgroundColor: '#fff' }]} onPress={() => onShare({ latitude: region.latitude, longitude: region.longitude })}>
+                        <Share2 color="#000" size={24} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.confirmButton} onPress={handleSelect}>
+                        <Text style={styles.confirmText}>SET TARGET</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.sideButton, { backgroundColor: '#fff' }]} onPress={() => onFavorite({ latitude: region.latitude, longitude: region.longitude })}>
+                        <Bookmark color="#000" size={24} />
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );
@@ -153,18 +165,38 @@ const styles = StyleSheet.create({
     confirmButton: {
         backgroundColor: '#000',
         paddingVertical: 18,
-        borderRadius: 12,
+        borderRadius: 20,
+        alignItems: 'center',
+        flex: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    confirmText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+        letterSpacing: 2,
+    },
+    actionRow: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
+    sideButton: {
+        width: 56,
+        height: 56,
+        borderRadius: 20,
+        justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 5,
-    },
-    confirmText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-        letterSpacing: 1,
     },
 });

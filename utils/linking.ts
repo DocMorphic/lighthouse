@@ -15,18 +15,20 @@ export const createBeaconUrl = (coordinate: Coordinate, note?: string, floor?: s
 
     const queryString = params.toString();
 
-    // PERMANENT LINK: Points to your published EAS update
-    // This works even when your local computer/tunnel is turned off.
-    const internalUrl = `exp://u.expo.dev/e5c1f5d1-f873-4748-8f33-c62e3ec4020c?channel-name=production&${queryString}`;
+    // STANDALONE APK LINK: Uses your custom app scheme 'lighthouse://'
+    // This ensures the link opens your standalone APK instead of Expo Go.
+    const internalUrl = `lighthouse://beacon?${queryString}`;
 
     // Return the Vercel Proxy URL
-    return `${VERCEL_PROXY_URL}/?lat=${coordinate.latitude}&lng=${coordinate.longitude}&u=${encodeURIComponent(internalUrl)}`;
+    return `${VERCEL_PROXY_URL}?lat=${coordinate.latitude}&lng=${coordinate.longitude}&u=${encodeURIComponent(internalUrl)}`;
 };
 
 export const parseBeaconUrl = (url: string) => {
     let queryString = '';
 
-    if (url.includes('?')) {
+    if (url.includes('lighthouse://')) {
+        queryString = url.split('?')[1];
+    } else if (url.includes('?')) {
         queryString = url.split('?')[1];
     } else if (url.includes('exp.host') || url.includes('expo.dev')) {
         const parts = url.split('/');

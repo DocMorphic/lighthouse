@@ -9,8 +9,14 @@ import {
     ActivityIndicator,
     Keyboard,
 } from 'react-native';
-import { Search, MapPin, X } from 'lucide-react-native';
+import { Search, MapPin, X, Bookmark, Share2, Star } from 'lucide-react-native';
 import { Coordinate } from '../utils/spatial';
+
+export interface FavoriteLocation {
+    id: string;
+    name: string;
+    coordinate: Coordinate;
+}
 
 interface SearchResult {
     place_id: number;
@@ -20,11 +26,22 @@ interface SearchResult {
 }
 
 interface LocationSearchProps {
+    favorites: FavoriteLocation[];
     onLocationSelect: (location: Coordinate, name: string) => void;
+    onFavorite: (location: Coordinate) => void;
+    onShare: (location: Coordinate) => void;
+    onRemoveFavorite: (id: string) => void;
     onCancel: () => void;
 }
 
-export function LocationSearch({ onLocationSelect, onCancel }: LocationSearchProps) {
+export function LocationSearch({
+    favorites,
+    onLocationSelect,
+    onFavorite,
+    onShare,
+    onRemoveFavorite,
+    onCancel
+}: LocationSearchProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -68,7 +85,46 @@ export function LocationSearch({ onLocationSelect, onCancel }: LocationSearchPro
                 latitude: parseFloat(result.lat),
                 longitude: parseFloat(result.lon),
             },
-            result.display_name.split(',')[0] // Just the first part of the name
+            result.display_name.split(',')[0]
+        );
+    };
+
+    const renderResult = ({ item, isFavorite }: { item: SearchResult | FavoriteLocation, isFavorite?: boolean }) => {
+        const name = 'display_name' in item ? item.display_name.split(',')[0] : item.name;
+        const address = 'display_name' in item ? item.display_name : `${item.coordinate.latitude.toFixed(5)}, ${item.coordinate.longitude.toFixed(5)}`;
+        const coord = 'display_name' in item
+            ? { latitude: parseFloat(item.lat), longitude: parseFloat(item.lon) }
+            : item.coordinate;
+
+        return (
+            <View style={styles.resultItemContainer}>
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => onLocationSelect(coord, name)}
+                >
+                    {isFavorite ? <Star color="#facc15" size={20} fill="#facc15" /> : <MapPin color="#4ade80" size={20} />}
+                    <View style={styles.resultTextContainer}>
+                        <Text style={styles.resultName} numberOfLines={1}>{name}</Text>
+                        <Text style={styles.resultAddress} numberOfLines={1}>{address}</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <View style={styles.actionButtons}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => onShare(coord)}>
+                        <Share2 color="#666" size={18} />
+                    </TouchableOpacity>
+                    {!isFavorite && (
+                        <TouchableOpacity style={styles.actionBtn} onPress={() => onFavorite(coord)}>
+                            <Bookmark color="#666" size={18} />
+                        </TouchableOpacity>
+                    )}
+                    {isFavorite && (
+                        <TouchableOpacity style={styles.actionBtn} onPress={() => onRemoveFavorite((item as FavoriteLocation).id)}>
+                            <X color="#f87171" size={18} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
         );
     };
 
@@ -111,25 +167,29 @@ export function LocationSearch({ onLocationSelect, onCancel }: LocationSearchPro
                 <Text style={styles.errorText}>{error}</Text>
             )}
 
-            <FlatList
-                data={results}
-                keyExtractor={(item) => item.place_id.toString()}
-                renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.resultItem} onPress={() => handleSelect(item)}>
-                        <MapPin color="#4ade80" size={20} />
-                        <View style={styles.resultTextContainer}>
-                            <Text style={styles.resultName} numberOfLines={1}>
-                                {item.display_name.split(',')[0]}
-                            </Text>
-                            <Text style={styles.resultAddress} numberOfLines={2}>
-                                {item.display_name}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-                style={styles.resultsList}
-                contentContainerStyle={styles.resultsContent}
-            />
+            {favorites.length > 0 && query.length < 3 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>FAVORITES</Text>
+                    <FlatList
+                        data={favorites}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => renderResult({ item, isFavorite: true })}
+                        scrollEnabled={false}
+                    />
+                </View>
+            )}
+
+            {results.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>SEARCH RESULTS</Text>
+                    <FlatList
+                        data={results}
+                        keyExtractor={(item) => item.place_id.toString()}
+                        renderItem={({ item }) => renderResult({ item })}
+                        scrollEnabled={false}
+                    />
+                </View>
+            )}
         </View>
     );
 }
@@ -202,19 +262,37 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 15,
     },
-    resultsList: {
-        marginTop: 15,
+    section: {
+        marginTop: 20,
     },
-    resultsContent: {
-        gap: 10,
+    sectionTitle: {
+        color: '#22d3ee',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 2,
+        marginBottom: 10,
     },
-    resultItem: {
+    resultItemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#111',
-        padding: 15,
         borderRadius: 12,
+        marginBottom: 8,
+        paddingRight: 8,
+    },
+    resultItem: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
         gap: 12,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        gap: 4,
+    },
+    actionBtn: {
+        padding: 10,
     },
     resultTextContainer: {
         flex: 1,
@@ -227,6 +305,6 @@ const styles = StyleSheet.create({
     resultAddress: {
         color: '#666',
         fontSize: 12,
-        marginTop: 4,
+        marginTop: 2,
     },
 });

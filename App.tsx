@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar, Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
-import { MapPin, Compass, Target, Search, Map as MapIcon, Share2, Sun, Moon } from 'lucide-react-native';
+import { MapPin, Compass, Target, Search, Map as MapIcon, Share2, Sun, Moon, Star } from 'lucide-react-native';
 import { useSpatialTracking } from './hooks/useSpatialTracking';
 import { getRelativeAngle, Coordinate } from './utils/spatial';
 import { CompassNeedle } from './components/CompassNeedle';
-import { LocationSearch } from './components/LocationSearch';
+import { LocationSearch, FavoriteLocation } from './components/LocationSearch';
 import { MapPicker } from './components/MapPicker';
 import { ShareBeacon } from './components/ShareBeacon';
 import { parseBeaconUrl } from './utils/linking';
 import { ConfirmationModal } from './components/ConfirmationModal';
+import { FavoriteModal } from './components/FavoriteModal';
+import { FavoritesManager } from './components/FavoritesManager';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
@@ -22,6 +25,11 @@ export default function App() {
   const [showShare, setShowShare] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [favorites, setFavorites] = useState<FavoriteLocation[]>([]);
+  const [showFavoriteModal, setShowFavoriteModal] = useState(false);
+  const [showFavoritesManager, setShowFavoritesManager] = useState(false);
+  const [pendingFavoriteCoord, setPendingFavoriteCoord] = useState<Coordinate | null>(null);
+  const [pendingShareCoord, setPendingShareCoord] = useState<Coordinate | null>(null);
 
   const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
   const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
@@ -87,6 +95,56 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
+  // Persistence: Load favorites on mount
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('lighthouse_favorites');
+        if (saved) {
+          setFavorites(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.error('Failed to load favorites', e);
+      }
+    };
+    loadFavorites();
+  }, []);
+
+  // Save favorites when they change
+  const saveFavoritesToDisk = async (newFavorites: FavoriteLocation[]) => {
+    try {
+      await AsyncStorage.setItem('lighthouse_favorites', JSON.stringify(newFavorites));
+    } catch (e) {
+      console.error('Failed to save favorites', e);
+    }
+  };
+
+  const addFavorite = async (name: string, coordinate: Coordinate) => {
+    const newFav: FavoriteLocation = {
+      id: Date.now().toString(),
+      name,
+      coordinate,
+    };
+    const updated = [...favorites, newFav];
+    setFavorites(updated);
+    saveFavoritesToDisk(updated);
+    setShowFavoriteModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const removeFavorite = (id: string) => {
+    const updated = favorites.filter(f => f.id !== id);
+    setFavorites(updated);
+    saveFavoritesToDisk(updated);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const clearAllFavorites = () => {
+    setFavorites([]);
+    saveFavoritesToDisk([]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  };
+
   const handleLocationSelect = (location: Coordinate, name: string) => {
     setTarget(location);
     setTargetName(name);
@@ -108,9 +166,73 @@ export default function App() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  if (showSearch) return <LocationSearch onLocationSelect={handleLocationSelect} onCancel={() => setShowSearch(false)} />;
-  if (showMap) return <MapPicker onLocationSelect={handleLocationSelect} onCancel={() => setShowMap(false)} initialLocation={currentLocation} />;
-  if (showShare && currentLocation) return <ShareBeacon location={currentLocation} onClose={() => setShowShare(false)} />;
+  if (showSearch) return (
+    <LocationSearch
+      favorites={favorites}
+      onLocationSelect={handleLocationSelect}
+      onFavorite={(coord) => {
+        setPendingFavoriteCoord(coord);
+        setShowFavoriteModal(true);
+        setShowSearch(false);
+      }}
+      onShare={(coord) => {
+        setPendingShareCoord(coord);
+        setShowShare(true);
+        setShowSearch(false);
+      }}
+      onRemoveFavorite={removeFavorite}
+      onCancel={() => setShowSearch(false)}
+    />
+  );
+
+  if (showMap) return (
+    <MapPicker
+      onLocationSelect={handleLocationSelect}
+      onShare={(coord) => {
+        setPendingShareCoord(coord);
+        setShowShare(true);
+        setShowMap(false);
+      }}
+      onFavorite={(coord) => {
+        setPendingFavoriteCoord(coord);
+        setShowFavoriteModal(true);
+        setShowMap(false);
+      }}
+      onCancel={() => setShowMap(false)}
+      initialLocation={currentLocation}
+    />
+  );
+
+  if (showFavoritesManager) return (
+    <FavoritesManager
+      favorites={favorites}
+      onSelect={(loc, name) => {
+        handleLocationSelect(loc, name);
+        setShowFavoritesManager(false);
+      }}
+      onRemove={removeFavorite}
+      onShare={(loc) => {
+        setPendingShareCoord(loc);
+        setShowShare(true);
+        setShowFavoritesManager(false);
+      }}
+      onClearAll={clearAllFavorites}
+      onClose={() => setShowFavoritesManager(false)}
+    />
+  );
+
+  // Decide which location to share: pending one or current
+  const locationToShare = pendingShareCoord || currentLocation;
+
+  if (showShare && locationToShare) return (
+    <ShareBeacon
+      location={locationToShare}
+      onClose={() => {
+        setShowShare(false);
+        setPendingShareCoord(null);
+      }}
+    />
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -208,19 +330,34 @@ export default function App() {
                   <Text style={[styles.halfButtonText, { color: colors.text }]}>PICK ON MAP</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.halfButton, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleSetTarget}>
+                <TouchableOpacity style={[styles.halfButton, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setShowFavoritesManager(true)}>
+                  <Star color={colors.text} size={20} />
+                  <Text style={[styles.halfButtonText, { color: colors.text }]}>FAVORITES</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.buttonRow}>
+                <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: 0 }]} onPress={handleSetTarget}>
                   <MapPin color={colors.text} size={20} />
-                  <Text style={[styles.halfButtonText, { color: colors.text }]}>MARK HERE</Text>
+                  <Text style={[styles.buttonText, { color: colors.text }]}>MARK CURRENT SPOT</Text>
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={[styles.utilityButton, { borderColor: colors.border }]} onPress={() => setShowShare(true)}>
                 <Share2 color={colors.subtext} size={16} />
-                <Text style={styles.utilityButtonText}>SHARE LOCATION</Text>
+                <Text style={styles.utilityButtonText}>SHARE CURRENT POSITION</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
+        {showFavoriteModal && pendingFavoriteCoord && (
+          <FavoriteModal
+            visible={showFavoriteModal}
+            location={pendingFavoriteCoord}
+            onSave={addFavorite}
+            onCancel={() => setShowFavoriteModal(false)}
+          />
+        )}
       </SafeAreaView>
     </View>
   );
