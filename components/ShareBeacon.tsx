@@ -47,9 +47,9 @@ export function ShareBeacon({ location, onClose }: ShareBeaconProps) {
         const url = createBeaconUrl(location, note, floor);
 
         // Create a message that is helpful even without the app
-        const message = `📍 Tactical Beacon\n\nTarget: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}\n` +
+        const message = `📍 Current Location\n\nTarget: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}\n` +
             (floor ? `🏢 Floor: ${floor}\n` : '') +
-            (note ? `📝 Intel: ${note}\n` : '') +
+            (note ? `📝 Extra Info: ${note}\n` : '') +
             `\nOpen in Lighthouse: ${url}`;
 
         try {
