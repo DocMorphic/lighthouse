@@ -17,7 +17,7 @@ export const createBeaconUrl = (coordinate: Coordinate, note?: string, floor?: s
 
     // PERMANENT LINK: Points to your published EAS update
     // This works even when your local computer/tunnel is turned off.
-    const internalUrl = `exp://u.expo.dev/46ee48d5-aab0-4748-8f33-c62e3ec4020c?channel-name=production&${queryString}`;
+    const internalUrl = `exp://u.expo.dev/e5c1f5d1-f873-4748-8f33-c62e3ec4020c?channel-name=production&${queryString}`;
 
     // Return the Vercel Proxy URL
     return `${VERCEL_PROXY_URL}/?lat=${coordinate.latitude}&lng=${coordinate.longitude}&u=${encodeURIComponent(internalUrl)}`;
