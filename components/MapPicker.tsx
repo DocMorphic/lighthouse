@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
-import MapView, { Region } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { MapPin, X, Share2, Bookmark } from 'lucide-react-native';
 import { Coordinate } from '../utils/spatial';
 import * as Location from 'expo-location';
@@ -14,60 +14,104 @@ interface MapPickerProps {
 }
 
 export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, initialLocation }: MapPickerProps) {
-    const mapRef = useRef<MapView>(null);
-    const [region, setRegion] = useState<Region>({
-        latitude: initialLocation?.latitude || 37.78825,
-        longitude: initialLocation?.longitude || -122.4324,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.0121,
-    });
-    const [loading, setLoading] = useState(true);
+    const webViewRef = useRef<WebView>(null);
+    const [currentCoord, setCurrentCoord] = useState<Coordinate>(
+        initialLocation || { latitude: 37.78825, longitude: -122.4324 }
+    );
 
-    // If no initial location, try to get current location
+    // Get current location if initialLocation is missing
     useEffect(() => {
         if (!initialLocation) {
             (async () => {
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status === 'granted') {
                     const loc = await Location.getCurrentPositionAsync({});
-                    setRegion({
+                    const newCoord = {
                         latitude: loc.coords.latitude,
                         longitude: loc.coords.longitude,
-                        latitudeDelta: 0.015,
-                        longitudeDelta: 0.0121,
-                    });
+                    };
+                    setCurrentCoord(newCoord);
+                    // Center the map in the webview
+                    webViewRef.current?.injectJavaScript(`map.setView([${newCoord.latitude}, ${newCoord.longitude}], 15);`);
                 }
-                setLoading(false);
             })();
-        } else {
-            setLoading(false);
         }
-    }, []);
+    }, [initialLocation]);
 
-    const handleRegionChangeComplete = (newRegion: Region) => {
-        setRegion(newRegion);
+    const handleMessage = (event: any) => {
+        try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'MOVE') {
+                setCurrentCoord({
+                    latitude: data.lat,
+                    longitude: data.lng,
+                });
+            }
+        } catch (e) {
+            console.error('Failed to parse message from WebView', e);
+        }
     };
 
+    const mapHtml = useMemo(() => {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <style>
+                    body { margin: 0; padding: 0; background-color: #000; }
+                    #map { height: 100vh; width: 100vw; background-color: #000; }
+                    .leaflet-control-attribution { display: none !important; }
+                    .leaflet-bar { border: none !important; }
+                </style>
+            </head>
+            <body>
+                <div id="map"></div>
+                <script>
+                    var map = L.map('map', {
+                        zoomControl: false,
+                        attributionControl: false
+                    }).setView([${currentCoord.latitude}, ${currentCoord.longitude}], 15);
+
+                    // Using CartoDB Dark Matter tiles for a premium dark look
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        maxZoom: 19
+                    }).addTo(map);
+
+                    map.on('move', function() {
+                        var center = map.getCenter();
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'MOVE',
+                            lat: center.lat,
+                            lng: center.lng
+                        }));
+                    });
+
+                    // Initial focus
+                    document.addEventListener('DOMContentLoaded', function() {
+                        setTimeout(() => map.invalidateSize(), 100);
+                    });
+                </script>
+            </body>
+            </html>
+        `;
+    }, []); // Only generate HTML once to prevent reloads
+
     const handleSelect = () => {
-        onLocationSelect(
-            {
-                latitude: region.latitude,
-                longitude: region.longitude,
-            },
-            'Marked Location'
-        );
+        onLocationSelect(currentCoord, 'Marked Location');
     };
 
     return (
         <View style={styles.container}>
-            <MapView
-                ref={mapRef}
+            <WebView
+                ref={webViewRef}
+                originWhitelist={['*']}
+                source={{ html: mapHtml }}
+                onMessage={handleMessage}
                 style={styles.map}
-                region={region}
-                onRegionChangeComplete={handleRegionChangeComplete}
-                showsUserLocation
-                showsMyLocationButton={false}
-                userInterfaceStyle="dark"
+                scrollEnabled={false} // The map handles its own gestures
             />
 
             {/* Fixed Center Pin */}
@@ -87,7 +131,10 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
             {/* Footer Overlay */}
             <View style={styles.footer}>
                 <View style={styles.actionRow}>
-                    <TouchableOpacity style={[styles.sideButton, { backgroundColor: '#fff' }]} onPress={() => onShare({ latitude: region.latitude, longitude: region.longitude })}>
+                    <TouchableOpacity
+                        style={[styles.sideButton, { backgroundColor: '#fff' }]}
+                        onPress={() => onShare(currentCoord)}
+                    >
                         <Share2 color="#000" size={24} />
                     </TouchableOpacity>
 
@@ -95,7 +142,10 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
                         <Text style={styles.confirmText}>SET TARGET</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.sideButton, { backgroundColor: '#fff' }]} onPress={() => onFavorite({ latitude: region.latitude, longitude: region.longitude })}>
+                    <TouchableOpacity
+                        style={[styles.sideButton, { backgroundColor: '#fff' }]}
+                        onPress={() => onFavorite(currentCoord)}
+                    >
                         <Bookmark color="#000" size={24} />
                     </TouchableOpacity>
                 </View>
@@ -117,12 +167,12 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: '50%',
         left: '50%',
-        marginTop: -40, // Half of icon size + offset
+        marginTop: -40,
         marginLeft: -20,
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
-        pointerEvents: 'none', // Allow touches to pass through to map
+        pointerEvents: 'none',
     },
     pinShadow: {
         width: 10,
