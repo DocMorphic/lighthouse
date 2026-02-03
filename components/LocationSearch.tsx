@@ -8,6 +8,7 @@ import {
     FlatList,
     ActivityIndicator,
     Keyboard,
+    useWindowDimensions,
 } from 'react-native';
 import { Search, MapPin, X, Bookmark, Share2, Star } from 'lucide-react-native';
 import { Coordinate } from '../utils/spatial';
@@ -42,6 +43,9 @@ export function LocationSearch({
     onRemoveFavorite,
     onCancel
 }: LocationSearchProps) {
+    const { width } = useWindowDimensions();
+    const horizontalPadding = Math.max(16, width * 0.05);
+
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -129,7 +133,7 @@ export function LocationSearch({
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingHorizontal: horizontalPadding }]}>
             <View style={styles.header}>
                 <Text style={styles.title}>Set Destination</Text>
                 <TouchableOpacity onPress={onCancel} style={styles.closeButton}>

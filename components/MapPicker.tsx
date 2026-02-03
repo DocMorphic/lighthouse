@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { MapPin, X, Share2, Bookmark } from 'lucide-react-native';
 import { Coordinate } from '../utils/spatial';
@@ -15,10 +15,15 @@ interface MapPickerProps {
 
 export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, initialLocation }: MapPickerProps) {
     const webViewRef = useRef<WebView>(null);
+    const { width, height } = useWindowDimensions();
     const [currentCoord, setCurrentCoord] = useState<Coordinate>(
         initialLocation || { latitude: 37.78825, longitude: -122.4324 }
     );
     const [mapReady, setMapReady] = useState(false);
+
+    // Dynamic safe area values for different phone sizes
+    const topInset = Platform.OS === 'ios' ? 50 : 40;
+    const bottomInset = Platform.OS === 'ios' ? 40 : 30;
 
     // Get current location if initialLocation is missing
     useEffect(() => {
@@ -130,18 +135,18 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
                 originWhitelist={['*']}
                 source={{ html: mapHtml }}
                 onMessage={handleMessage}
-                style={styles.map}
+                style={{ width, height }}
                 scrollEnabled={false} // The map handles its own gestures
             />
 
             {/* Fixed Center Pin */}
             <View style={styles.centerMarker}>
-                <MapPin color="#ef4444" size={40} fill="#ef4444" />
+                <MapPin color="#ef4444" size={Math.min(40, width * 0.1)} fill="#ef4444" />
                 <View style={styles.pinShadow} />
             </View>
 
             {/* Header Overlay */}
-            <View style={styles.header}>
+            <View style={[styles.header, { top: topInset, left: width * 0.05, right: width * 0.05 }]}>
                 <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
                     <X color="#000" size={24} />
                 </TouchableOpacity>
@@ -149,7 +154,7 @@ export function MapPicker({ onLocationSelect, onShare, onFavorite, onCancel, ini
             </View>
 
             {/* Footer Overlay */}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { bottom: bottomInset, left: width * 0.05, right: width * 0.05 }]}>
                 <View style={styles.actionRow}>
                     <TouchableOpacity
                         style={[styles.sideButton, { backgroundColor: '#fff' }]}
@@ -179,10 +184,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
     },
-    map: {
-        width: Dimensions.get('window').width,
-        height: Dimensions.get('window').height,
-    },
     centerMarker: {
         position: 'absolute',
         top: '50%',
@@ -203,9 +204,6 @@ const styles = StyleSheet.create({
     },
     header: {
         position: 'absolute',
-        top: 50,
-        left: 20,
-        right: 20,
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.9)',
@@ -228,9 +226,6 @@ const styles = StyleSheet.create({
     },
     footer: {
         position: 'absolute',
-        bottom: 40,
-        left: 20,
-        right: 20,
     },
     confirmButton: {
         backgroundColor: '#000',

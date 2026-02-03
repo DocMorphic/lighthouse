@@ -8,6 +8,7 @@ import {
     SafeAreaView,
     StatusBar,
     Alert,
+    useWindowDimensions,
 } from 'react-native';
 import { X, Trash2, MapPin, Navigation, Star, Share2 } from 'lucide-react-native';
 import { FavoriteLocation } from './LocationSearch';
@@ -23,6 +24,9 @@ interface FavoritesManagerProps {
 }
 
 export function FavoritesManager({ favorites, onSelect, onShare, onRemove, onClearAll, onClose }: FavoritesManagerProps) {
+    const { width } = useWindowDimensions();
+    const horizontalPadding = Math.max(16, width * 0.05);
+
     const handleClearAll = () => {
         Alert.alert(
             "Clear All Favorites",
@@ -38,7 +42,7 @@ export function FavoritesManager({ favorites, onSelect, onShare, onRemove, onCle
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingHorizontal: horizontalPadding }]}>
                     <Text style={styles.title}>Your Favorites</Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                         <X color="#fff" size={24} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar, Platform, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar, Platform, Alert, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { MapPin, Compass, Target, Search, Map as MapIcon, Share2, Sun, Moon, Star } from 'lucide-react-native';
@@ -30,6 +30,11 @@ export default function App() {
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
   const [pendingFavoriteCoord, setPendingFavoriteCoord] = useState<Coordinate | null>(null);
   const [pendingShareCoord, setPendingShareCoord] = useState<Coordinate | null>(null);
+
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const compassSize = Math.min(200, Math.max(140, width * 0.45));
+  const distanceFontSize = Math.min(48, Math.max(32, width * 0.1));
 
   const { currentLocation, heading, headingAccuracy, gpsAccuracy, distance, bearing, error } = useSpatialTracking(target);
   const angleDiff = heading !== null && bearing !== null ? getRelativeAngle(heading, bearing) : null;
@@ -284,11 +289,11 @@ export default function App() {
         <View style={styles.mainView}>
           {target ? (
             <View style={styles.infoBox}>
-              <CompassNeedle angleDiff={angleDiff} size={200} theme={theme} />
+              <CompassNeedle angleDiff={angleDiff} size={compassSize} theme={theme} />
 
               <View style={styles.distanceContainer}>
                 <Text style={styles.distanceLabel}>Distance to Target</Text>
-                <Text style={[styles.distanceValue, { color: colors.text }]}>
+                <Text style={[styles.distanceValue, { color: colors.text, fontSize: distanceFontSize }]}>
                   {distance !== null ? (distance === 0 ? 'ARRIVED' : distance > 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(1)} m`) : '--'}
                 </Text>
               </View>
