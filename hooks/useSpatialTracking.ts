@@ -14,6 +14,24 @@ export interface SpatialData {
 
 // Number of samples to average for GPS smoothing
 const GPS_SAMPLE_SIZE = 5;
+// Number of samples to average for heading smoothing
+const HEADING_SAMPLE_SIZE = 8;
+
+/**
+ * Compute the circular mean of an array of angles (in degrees).
+ * Uses atan2(mean(sin), mean(cos)) to handle the 0°/360° wraparound.
+ */
+function circularMean(angles: number[]): number {
+    let sinSum = 0;
+    let cosSum = 0;
+    for (const a of angles) {
+        const rad = (a * Math.PI) / 180;
+        sinSum += Math.sin(rad);
+        cosSum += Math.cos(rad);
+    }
+    const mean = (Math.atan2(sinSum / angles.length, cosSum / angles.length) * 180) / Math.PI;
+    return (mean + 360) % 360;
+}
 
 export function useSpatialTracking(target: Coordinate | null): SpatialData {
     const [smoothedLocation, setSmoothedLocation] = useState<Coordinate | null>(null);
@@ -24,6 +42,8 @@ export function useSpatialTracking(target: Coordinate | null): SpatialData {
 
     // Buffer for GPS smoothing (moving average)
     const locationBuffer = useRef<Coordinate[]>([]);
+    // Buffer for heading smoothing (circular moving average)
+    const headingBuffer = useRef<number[]>([]);
 
     useEffect(() => {
         let locationSub: Location.LocationSubscription | null = null;
@@ -70,9 +90,21 @@ export function useSpatialTracking(target: Coordinate | null): SpatialData {
                 }
             );
 
-            // Track heading (Compass)
+            // Track heading (Compass) with smoothing
             headingSub = await Location.watchHeadingAsync((h) => {
-                setHeading(h.trueHeading !== -1 ? h.trueHeading : h.magHeading);
+                const rawHeading = h.trueHeading !== -1 ? h.trueHeading : h.magHeading;
+
+                // Add to buffer
+                headingBuffer.current.push(rawHeading);
+
+                // Keep only last N samples
+                if (headingBuffer.current.length > HEADING_SAMPLE_SIZE) {
+                    headingBuffer.current.shift();
+                }
+
+                // Compute smoothed heading via circular mean
+                const smoothed = circularMean(headingBuffer.current);
+                setHeading(smoothed);
                 setHeadingAccuracy(h.accuracy);
             });
         })();

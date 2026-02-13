@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Animated } from 'react-native';
+import { StyleSheet, View, Animated, Easing } from 'react-native';
 import { Navigation } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -31,18 +31,39 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
     };
 }
 
+/**
+ * Compute the shortest-path delta between two angles, result in [-180, 180].
+ */
+function shortestAngleDelta(from: number, to: number): number {
+    let delta = to - from;
+    while (delta > 180) delta -= 360;
+    while (delta < -180) delta += 360;
+    return delta;
+}
+
 export function CompassNeedle({ angleDiff, size = 200, theme = 'dark' }: CompassNeedleProps) {
     const rotation = useRef(new Animated.Value(0)).current;
+    // Track cumulative rotation so we always take the shortest path
+    const cumulativeAngle = useRef(0);
+    const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
-    // Animate rotation
+    // Animate rotation smoothly via shortest path
     useEffect(() => {
         if (angleDiff !== null) {
-            Animated.spring(rotation, {
-                toValue: angleDiff,
+            const delta = shortestAngleDelta(cumulativeAngle.current, angleDiff);
+            const newTarget = cumulativeAngle.current + delta;
+            cumulativeAngle.current = newTarget;
+
+            // Stop any in-flight animation to avoid stacking
+            animRef.current?.stop();
+
+            animRef.current = Animated.timing(rotation, {
+                toValue: newTarget,
+                duration: 150,
+                easing: Easing.out(Easing.quad),
                 useNativeDriver: true,
-                damping: 15,
-                stiffness: 100,
-            }).start();
+            });
+            animRef.current.start();
         }
     }, [angleDiff, rotation]);
 
@@ -62,9 +83,10 @@ export function CompassNeedle({ angleDiff, size = 200, theme = 'dark' }: Compass
     };
     const colors = getColor();
 
+    // Use unbounded interpolation to support cumulative rotation values
     const rotateInterpolation = rotation.interpolate({
-        inputRange: [-180, 180],
-        outputRange: ['-180deg', '180deg'],
+        inputRange: [-99999, 99999],
+        outputRange: ['-99999deg', '99999deg'],
     });
 
     // Arc Logic
